@@ -1,101 +1,222 @@
-﻿using UnityEngine;
+﻿// This is fun project with Unity and 2dplatform.
+// The source code is referencing from
+// (*) Sebastian Lague [https://www.youtube.com/playlist?list=PLFt_AvWsXl0f0hqURlhyIoAabKPgRsqjz]
+
+using UnityEngine;
 using System.Collections;
 
 [RequireComponent (typeof (Controller2D))]
 public class Player : MonoBehaviour {
 
+	/// <summary>
+	/// The max jump height
+	/// </summary>
 	public float maxJumpHeight = 4;
-	public float minJumpHeight = 1;
-	public float timeToJumpApex = .4f;
-	float accelerationTimeAirborne = .2f;
-	float accelerationTimeGrounded = .1f;
-	float moveSpeed = 6;
 
+	/// <summary>
+	/// The min jump height
+	/// </summary>
+	public float minJumpHeight = 1;
+
+	/// <summary>
+	/// The time to jump apex
+	/// This filed used to calculator Gravity
+	/// </summary>
+	public float timeToJumpApex = .4f;
+
+	/// <summary>
+	/// The acceleration time air borne
+	/// </summary>
+	float __accelerationTimeAirborne = .2f;
+
+	/// <summary>
+	/// The acceleration time grounded
+	/// </summary>
+	float __accelerationTimeGrounded = .1f;
+
+	/// <summary>
+	/// The move speed
+	/// </summary>
+	float __moveSpeed = 6;
+
+	/// <summary>
+	/// The wall jump climb
+	/// </summary>
 	public Vector2 wallJumpClimb;
+
+	/// <summary>
+	/// The wall jump off
+	/// </summary>
 	public Vector2 wallJumpOff;
+
+	/// <summary>
+	/// The wall leap
+	/// </summary>
 	public Vector2 wallLeap;
+
+	/// <summary>
+	/// The wall sliding speed max
+	/// </summary>
 	public float wallSlidingSpeedMax = 3f;
 
+	/// <summary>
+	/// The wall stick time
+	/// </summary>
 	public float wallStickTime = .25f;
-	float timeToWallUnstick;
 
-	float gravity;
-	float maxJumpVelocity;
-	float minJumpVelocity;
-	Vector3 velocity;
-	float velocityXSmoothing;
+	/// <summary>
+	/// The time to wall unstick
+	/// </summary>
+	float __timeToWallUnstick;
 
-	Controller2D controller;
+	/// <summary>
+	/// The character gravity
+	/// </summary>
+	float __gravity;
 
+	/// <summary>
+	/// The max jump velocity
+	/// </summary>
+	float __maxJumpVelocity;
+
+	/// <summary>
+	/// The min jump velocity
+	/// </summary>
+	float __minJumpVelocity;
+
+	/// <summary>
+	/// The character velocity
+	/// </summary>
+	__velocity velocity;
+
+	/// <summary>
+	/// The horizontal velocity smoothing
+	/// </summary>
+	float __velocityXSmoothing;
+
+	/// <summary>
+	/// The reference component
+	/// Controller 2D
+	/// </summary>
+	__controller controller;
+
+	/// <summary>
+	/// The start method
+	/// </summary>
 	void Start() {
-		controller = GetComponent<Controller2D> ();
+		// Get controller 2D component
+		__controller = GetComponent<Controller2D> ();
 
-		gravity = -(2 * maxJumpHeight) / Mathf.Pow (timeToJumpApex, 2);
-		maxJumpVelocity = Mathf.Abs(gravity) * timeToJumpApex;
-		minJumpVelocity = Mathf.Sqrt ( 2 * Mathf.Abs (gravity) * minJumpHeight );
-		print ("Gravity: " + gravity + "  Jump Velocity: " + maxJumpVelocity);
+		// Compute the character gravity with formular
+		__gravity = -(2 * maxJumpHeight) / Mathf.Pow (timeToJumpApex, 2);
+
+		// Compute the max jump velocity
+		__maxJumpVelocity = Mathf.Abs(__gravity) * timeToJumpApex;
+
+		// Compute the min jump velocity
+		__minJumpVelocity = Mathf.Sqrt ( 2 * Mathf.Abs (__gravity) * minJumpHeight );
+
+		print ("Gravity: " + __gravity + "  Jump Velocity: " + __maxJumpVelocity);
 	}
 
+	/// <summary>
+	/// The update method
+	/// </summary>
 	void Update() {
-		Vector2 input = new Vector2 (Input.GetAxisRaw ("Horizontal"), Input.GetAxisRaw ("Vertical"));
-		int wallDirX = (controller.collisions.left) ? -1 : 1;
+		// Get the horizontal and vertical input
+		Vector2 input = new Vector2 (
+			Input.GetAxisRaw ("Horizontal"),
+			Input.GetAxisRaw ("Vertical")
+			);
 
-		float targetVelocityX = input.x * moveSpeed;
-		velocity.x = Mathf.SmoothDamp (velocity.x, targetVelocityX, ref velocityXSmoothing, (controller.collisions.below)?accelerationTimeGrounded:accelerationTimeAirborne);
+		// Get wall horizontal direction of controller
+		int wallDirX = (__controller.collisions.left) ? -1 : 1;
 
+		// Compute the target horizontal velocity and velocity of character
+		float targetVelocityX = input.x * __moveSpeed;
+		__velocity.x = Mathf.SmoothDamp (__velocity.x,
+											targetVelocityX,
+											ref __velocityXSmoothing,
+											(__controller.collisions.below)?
+												__accelerationTimeGrounded:
+												__accelerationTimeAirborne);
+
+		// Are character sliding on wall?
 		bool wallSliding = false;
-		if ((controller.collisions.left || controller.collisions.right) &&
-		    !controller.collisions.below && velocity.y < 0) {
+		if ((__controller.collisions.left || __controller.collisions.right) &&
+		    !__controller.collisions.below && __velocity.y < 0) {
+
+			// The character is sliding on wall
 			wallSliding = true;
 
-			if ( velocity.y < -wallSlidingSpeedMax )
+			// Adjust the sliding velocity
+			if ( __velocity.y < -wallSlidingSpeedMax )
 			{
-				velocity.y = -wallSlidingSpeedMax;
+				__velocity.y = -wallSlidingSpeedMax;
 			}
 
-			if ( timeToWallUnstick > 0 ) {
-				velocityXSmoothing = 0;
-				velocity.x = 0;
+			// If character is stick on wall in a chunk time,
+			// let make sure velocity is zero
+			if ( __timeToWallUnstick > 0 ) {
 
+				__velocityXSmoothing = 0;
+				__velocity.x = 0;
+
+				// Update stick time
 				if (input.x != wallDirX && input.x != 0 ) {
-					timeToWallUnstick -= Time.deltaTime;	
+					__timeToWallUnstick -= Time.deltaTime;
 				}else {
-					timeToWallUnstick = wallStickTime;
+					__timeToWallUnstick = wallStickTime;
 				}
+
 			} else {
-				timeToWallUnstick = wallStickTime;
+				__timeToWallUnstick = wallStickTime;
 			}
 		}
 
+		// Make character jump when press down Space
 		if (Input.GetKeyDown (KeyCode.Space)) {
+
+			// If character is sliding
 			if ( wallSliding ) {
 				if ( wallDirX == input.x ){
-					velocity.x = -wallDirX * wallJumpClimb.x;
-					velocity.y = wallJumpClimb.y;
+					__velocity.x = -wallDirX * wallJumpClimb.x;
+					__velocity.y = wallJumpClimb.y;
 				}else if (input.x == 0) {
-					velocity.x = -wallDirX * wallJumpOff.x;
-					velocity.y = wallJumpOff.y;
+					__velocity.x = -wallDirX * wallJumpOff.x;
+					__velocity.y = wallJumpOff.y;
 				}else {
-					velocity.x = -wallDirX * wallLeap.x;
-					velocity.y = wallLeap.y;
+					__velocity.x = -wallDirX * wallLeap.x;
+					__velocity.y = wallLeap.y;
 				}
 			}
 
-			if ( controller.collisions.below ) {
-				velocity.y = maxJumpVelocity;
+			// If character is standing on a ground
+			// let's make sure character with max jump velocity
+			// (Hard Press Space)
+			if ( __controller.collisions.below ) {
+				__velocity.y = __maxJumpVelocity;
 			}
 		}
+
+		// Make character with min jump velocity when get input space up
+		// (Soft Press Space)
 		if ( Input.GetKeyUp (KeyCode.Space) ) {
-			if ( velocity.y > minJumpVelocity ) {
-				velocity.y = minJumpVelocity;
+			if ( __velocity.y > __minJumpVelocity ) {
+				__velocity.y = __minJumpVelocity;
 			}
 		}
 
-		velocity.y += gravity * Time.deltaTime;
-		controller.Move (velocity * Time.deltaTime, input) ;
+		// Update vertical velocity of character with gravity
+		__velocity.y += __gravity * Time.deltaTime;
 
-		if (controller.collisions.above || controller.collisions.below) {
-			velocity.y = 0;
+		// Move controller with velocity and input
+		__controller.Move (__velocity * Time.deltaTime, input) ;
+
+		// If character is collision with top or standing on a ground
+		// Make sure velocity vertical is Zero
+		if (__controller.collisions.above || __controller.collisions.below) {
+			__velocity.y = 0;
 		}
 	}
 }
